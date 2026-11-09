@@ -1,0 +1,87 @@
+name: Digest preview
+
+# Public publication is a separate, explicit manual action.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Marked review copy, or approved clean overwrite after review
+        required: true
+        type: choice
+        options:
+          - marked
+          - clean
+        default: marked
+      marker:
+        description: Public lane marker for marked mode; leave empty for clean (never a secret)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: digest-preview-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: write # Delete the marked deployment artifact when deployment finishes.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test
+        run: pnpm test
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Save the actual digest HTTP response outside the checkout
+        env:
+          PREVIEW_MODE: ${{ inputs.mode }}
+          LANE_MARKER: ${{ inputs.marker }}
+          LANE_ID: lane-07
+        run: |
+          mkdir -p "$RUNNER_TEMP/rig-preview-site"
+          node scripts/save-preview.mjs "$PREVIEW_MODE" "$RUNNER_TEMP/rig-preview-site/index.html"
+      - name: Upload temporary Pages artifact
+        id: upload
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/rig-preview-site
+          retention-days: 1
+      - name: Deploy Pages and wait for completion
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Delete uploaded preview artifact
+        # upload-pages-artifact@v4 exposes artifact_id (underscore), not artifact-id.
+        # https://github.com/actions/upload-pages-artifact/blob/v4/action.yml
+        if: ${{ always() && steps.upload.outputs.artifact_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --silent
+      - name: Remove temporary local preview
+        if: ${{ always() }}
+        run: |
+          rm -rf "$RUNNER_TEMP/rig-preview-site"
+          rm -f "$RUNNER_TEMP/artifact.tar"
