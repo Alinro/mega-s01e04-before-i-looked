@@ -1,8 +1,9 @@
 ---
 plan: morning-digest
-status: ready
+status: done
 owner: rook
 opened: 2026-10-29
+closed: 2026-11-09
 ---
 
 # Morning digest
@@ -88,3 +89,7 @@ Done when: the preview link no longer shows the lane marker.
 - [#6 · Test digest HTML and JSON routes](https://github.com/Alinro/mega-s01e04-before-i-looked/issues/6)
 - [#7 · Publish the HTML preview for review](https://github.com/Alinro/mega-s01e04-before-i-looked/issues/7)
 - [#8 · Remove the public marker and archive the plan](https://github.com/Alinro/mega-s01e04-before-i-looked/issues/8)
+
+## Review completion
+
+Sending the preview link did not count as review. Issue [#7](https://github.com/Alinro/mega-s01e04-before-i-looked/issues/7) was reopened, then closed after the reviewer submitted an explicit review.
